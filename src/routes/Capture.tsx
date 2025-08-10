@@ -21,6 +21,12 @@ export const Capture: React.FC = () => {
   const handleRunClick = async () => {
     if (isRunning) {
       stopRun();
+      
+      // Stop the simulation engine
+      const simEngine = (window as any).__simulationEngine;
+      if (simEngine) {
+        simEngine.stop();
+      }
       return;
     }
 
@@ -41,11 +47,14 @@ export const Capture: React.FC = () => {
             new Date().toISOString()
           );
           completeRun(record);
-        } else {
+        } else if (simulationState.phase !== 'done') {
           requestAnimationFrame(checkCompletion);
         }
       };
       requestAnimationFrame(checkCompletion);
+    } else {
+      console.warn('Simulation engine not available');
+      stopRun();
     }
   };
 

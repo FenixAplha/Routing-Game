@@ -78,9 +78,18 @@ export const CanvasViz: React.FC<CanvasVizProps> = ({ className = '' }) => {
       if (simulationEngineRef.current) {
         setSimulationState(simulationEngineRef.current.state);
       }
+      // Continue monitoring while component is mounted
       requestAnimationFrame(monitorSimulation);
     };
-    requestAnimationFrame(monitorSimulation);
+    
+    // Start monitoring after a brief delay to ensure engine is ready
+    const timeoutId = setTimeout(() => {
+      monitorSimulation();
+    }, 100);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
     
   }, [config, lastScatterSeed, setSimulationState]);
 
@@ -121,7 +130,16 @@ export const CanvasViz: React.FC<CanvasVizProps> = ({ className = '' }) => {
   useEffect(() => {
     // Make simulation engine available globally for controls
     (window as any).__simulationEngine = simulationEngineRef.current;
+    
+    // Also expose viz engine for signal count checks
+    (window as any).__vizEngine = vizEngineRef.current;
   }, []);
+
+  // Update global references when engines change
+  useEffect(() => {
+    (window as any).__simulationEngine = simulationEngineRef.current;
+    (window as any).__vizEngine = vizEngineRef.current;
+  }, [simulationEngineRef.current, vizEngineRef.current]);
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>

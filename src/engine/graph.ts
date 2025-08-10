@@ -167,7 +167,7 @@ export function buildGraph(
       y: y + jitterY,
       r: 17,
       icon: '◇',
-      modelId: model.id,
+      modelId: model.id, // Important: tag with the actual model ID
     });
 
     modelNodes.push(node);
