@@ -81,6 +81,15 @@ export class SimulationEngine {
   }
 
   /**
+   * Transition to idle state (ready to run)
+   */
+  setIdle(): void {
+    if (this.state.phase === 'building') {
+      this.state.phase = 'idle';
+    }
+  }
+
+  /**
    * Start the simulation
    */
   start(): void {

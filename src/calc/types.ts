@@ -92,9 +92,11 @@ export interface RouterStats {
 }
 
 export interface ModelStats {
+  forwards: number;
   requests: number;
   tokensTotal: number;
   costUSD: number;
+  modelCostUSD: number;
 }
 
 // Visualization types

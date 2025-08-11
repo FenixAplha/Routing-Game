@@ -1,6 +1,6 @@
 // store/configStore.ts
 import { create } from 'zustand';
-import { RunConfig, Router, Model, Profile, Group } from '../calc/types';
+import { RunConfig, Router, Model, Profile, Group, SustainAssumptions } from '../calc/types';
 import { BUILTIN_PRESETS } from '../presets/builtin';
 import { getDefaultSustainAssumptions } from '../calc/sustainability';
 import { validateTotalCommission } from '../calc/schema';
@@ -38,6 +38,9 @@ interface ConfigState {
   // Presets
   applyPreset: (presetId: string) => void;
   applyBuiltinPreset: (presetId: string) => void;
+  
+  // Sustainability
+  updateSustainAssumptions: (updates: Partial<SustainAssumptions>) => void;
   
   // Utilities
   randomizeSeed: () => void;
@@ -317,6 +320,16 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         lastScatterSeed: Math.random(),
       }));
     }
+  },
+
+  updateSustainAssumptions: (updates: Partial<SustainAssumptions>) => {
+    set(state => ({
+      config: {
+        ...state.config,
+        sustain: { ...state.config.sustain, ...updates },
+      },
+      isDirty: true,
+    }));
   },
 
   randomizeSeed: () => {

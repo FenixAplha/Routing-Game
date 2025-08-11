@@ -126,6 +126,7 @@ export class VizEngine {
   private buildT = 0;
   private buildDuration = 1.0;
   private center: Point;
+  private onBuildComplete?: () => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -150,10 +151,11 @@ export class VizEngine {
   /**
    * Start the build animation
    */
-  startBuild(): void {
+  startBuild(onComplete?: () => void): void {
     this.mode = 'build';
     this.buildT = 0;
     this.center = { x: this.canvas.width / 2, y: this.canvas.height / 2 };
+    this.onBuildComplete = onComplete;
   }
 
   /**
@@ -439,6 +441,12 @@ export class VizEngine {
     if (this.buildT >= 1) {
       this.mode = 'run';
       this.bakeStatic();
+      
+      // Notify build completion
+      if (this.onBuildComplete) {
+        this.onBuildComplete();
+        this.onBuildComplete = undefined;
+      }
     }
   }
 
