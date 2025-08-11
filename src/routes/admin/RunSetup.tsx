@@ -1,5 +1,5 @@
 // routes/admin/RunSetup.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useConfigStore } from '../../store/configStore';
 
 export const RunSetup: React.FC = () => {
@@ -12,15 +12,78 @@ export const RunSetup: React.FC = () => {
     addRouter,
     updateRouter,
     deleteRouter,
-    updateGroup,
+    addModel,
+    updateModel,
+    deleteModel,
     addProfile,
+    updateProfile,
+    deleteProfile,
+    updateGroup,
     isDirty,
     validateCommissionCap,
     getTotalCommissionRate,
   } = useConfigStore();
 
+  const [userNameError, setUserNameError] = useState('');
+  const [modelErrors, setModelErrors] = useState<Record<string, string>>({});
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
+
   const totalCommissionRate = getTotalCommissionRate();
   const isCommissionValid = validateCommissionCap();
+
+  // Validation functions
+  const validateUserName = (name: string) => {
+    if (!name.trim()) {
+      setUserNameError('User name is required');
+      return false;
+    }
+    if (name.length > 50) {
+      setUserNameError('User name must be 50 characters or less');
+      return false;
+    }
+    setUserNameError('');
+    return true;
+  };
+
+  const validateModel = (id: string, field: string, value: any) => {
+    const errors = { ...modelErrors };
+    const key = `${id}-${field}`;
+    
+    if (field === 'name' && !value.trim()) {
+      errors[key] = 'Model name is required';
+    } else if (field === 'pricePer1kTokensUSD' && (value <= 0 || isNaN(value))) {
+      errors[key] = 'Price must be a positive number';
+    } else if (field === 'energyPerTokenWh' && (value < 0 || isNaN(value))) {
+      errors[key] = 'Energy must be a non-negative number';
+    } else if (field === 'weight' && (value <= 0 || isNaN(value))) {
+      errors[key] = 'Weight must be a positive number';
+    } else {
+      delete errors[key];
+    }
+    
+    setModelErrors(errors);
+    return !errors[key];
+  };
+
+  const validateProfile = (id: string, field: string, value: any) => {
+    const errors = { ...profileErrors };
+    const key = `${id}-${field}`;
+    
+    if (field === 'name' && !value.trim()) {
+      errors[key] = 'Profile name is required';
+    } else if (field === 'avgReqsPerUserPerSec' && (value <= 0 || isNaN(value))) {
+      errors[key] = 'Request rate must be positive';
+    } else if (field === 'promptTokenMean' && (value <= 0 || isNaN(value))) {
+      errors[key] = 'Prompt tokens must be positive';
+    } else if (field === 'completionTokenMean' && (value <= 0 || isNaN(value))) {
+      errors[key] = 'Completion tokens must be positive';
+    } else {
+      delete errors[key];
+    }
+    
+    setProfileErrors(errors);
+    return !errors[key];
+  };
 
   return (
     <div className="space-y-8">
@@ -43,10 +106,21 @@ export const RunSetup: React.FC = () => {
             <input
               type="text"
               value={config.universalUserName}
-              onChange={(e) => setUniversalUserName(e.target.value)}
-              className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-dark-text focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              onChange={(e) => {
+                const value = e.target.value;
+                setUniversalUserName(value);
+                validateUserName(value);
+              }}
+              className={`w-full px-3 py-2 bg-dark-bg border rounded-lg text-dark-text focus:ring-2 focus:border-transparent ${
+                userNameError 
+                  ? 'border-red-500 focus:ring-red-500' 
+                  : 'border-dark-border focus:ring-primary-500'
+              }`}
               placeholder="e.g., Researchers"
             />
+            {userNameError && (
+              <p className="text-xs text-red-400 mt-1">{userNameError}</p>
+            )}
             <p className="text-xs text-gray-500 mt-1">
               Used throughout the interface to refer to all users
             </p>
@@ -227,6 +301,282 @@ export const RunSetup: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Model Management */}
+      <div className="bg-dark-surface border border-dark-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Model Management</h3>
+          <button
+            onClick={addModel}
+            className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm transition-colors"
+          >
+            Add Model
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {config.models.map((model) => (
+            <div key={model.id} className="bg-dark-bg border border-dark-border rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={model.name}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateModel(model.id, { name: value });
+                      validateModel(model.id, 'name', value);
+                    }}
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      modelErrors[`${model.id}-name`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {modelErrors[`${model.id}-name`] && (
+                    <p className="text-xs text-red-400 mt-1">{modelErrors[`${model.id}-name`]}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Price/1k Tokens ($)
+                    <span className="text-yellow-400 ml-1" title="Required: Must be positive">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={model.pricePer1kTokensUSD}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      updateModel(model.id, { pricePer1kTokensUSD: value });
+                      validateModel(model.id, 'pricePer1kTokensUSD', value);
+                    }}
+                    step="0.01"
+                    min="0"
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      modelErrors[`${model.id}-pricePer1kTokensUSD`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {modelErrors[`${model.id}-pricePer1kTokensUSD`] && (
+                    <p className="text-xs text-red-400 mt-1">{modelErrors[`${model.id}-pricePer1kTokensUSD`]}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Energy/Token (Wh)
+                    <span className="text-gray-500 ml-1" title="Optional: Energy consumption per token">?</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={model.energyPerTokenWh || 0}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      updateModel(model.id, { energyPerTokenWh: value });
+                      validateModel(model.id, 'energyPerTokenWh', value);
+                    }}
+                    step="0.001"
+                    min="0"
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      modelErrors[`${model.id}-energyPerTokenWh`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {modelErrors[`${model.id}-energyPerTokenWh`] && (
+                    <p className="text-xs text-red-400 mt-1">{modelErrors[`${model.id}-energyPerTokenWh`]}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Weight
+                    <span className="text-gray-500 ml-1" title="Selection probability weight">?</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={model.weight || 1}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      updateModel(model.id, { weight: value });
+                      validateModel(model.id, 'weight', value);
+                    }}
+                    step="0.1"
+                    min="0.1"
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      modelErrors[`${model.id}-weight`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {modelErrors[`${model.id}-weight`] && (
+                    <p className="text-xs text-red-400 mt-1">{modelErrors[`${model.id}-weight`]}</p>
+                  )}
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    onClick={() => deleteModel(model.id)}
+                    disabled={config.models.length <= 1}
+                    className="w-full px-2 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded text-sm transition-colors"
+                    title={config.models.length <= 1 ? "Cannot delete last model" : "Delete model"}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Profile Management */}
+      <div className="bg-dark-surface border border-dark-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Profile Management</h3>
+          <button
+            onClick={addProfile}
+            className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm transition-colors"
+          >
+            Add Profile
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {config.profiles.map((profile) => (
+            <div key={profile.id} className="bg-dark-bg border border-dark-border rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-start">
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={profile.name}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      updateProfile(profile.id, { name: value });
+                      validateProfile(profile.id, 'name', value);
+                    }}
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      profileErrors[`${profile.id}-name`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {profileErrors[`${profile.id}-name`] && (
+                    <p className="text-xs text-red-400 mt-1">{profileErrors[`${profile.id}-name`]}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Req/User/Sec
+                    <span className="text-yellow-400 ml-1" title="Average requests per user per second">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={profile.avgReqsPerUserPerSec}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      updateProfile(profile.id, { avgReqsPerUserPerSec: value });
+                      validateProfile(profile.id, 'avgReqsPerUserPerSec', value);
+                    }}
+                    step="0.01"
+                    min="0"
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      profileErrors[`${profile.id}-avgReqsPerUserPerSec`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {profileErrors[`${profile.id}-avgReqsPerUserPerSec`] && (
+                    <p className="text-xs text-red-400 mt-1">{profileErrors[`${profile.id}-avgReqsPerUserPerSec`]}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">Distribution</label>
+                  <select
+                    value={profile.distribution}
+                    onChange={(e) => updateProfile(profile.id, { 
+                      distribution: e.target.value as 'poisson' | 'bounded-normal' | 'fixed' | 'custom'
+                    })}
+                    className="w-full px-2 py-1 bg-dark-surface border border-dark-border rounded text-sm"
+                  >
+                    <option value="poisson">Poisson</option>
+                    <option value="bounded-normal">Bounded Normal</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Prompt Tokens
+                    <span className="text-yellow-400 ml-1" title="Average tokens in prompts">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={profile.promptTokenMean}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      updateProfile(profile.id, { promptTokenMean: value });
+                      validateProfile(profile.id, 'promptTokenMean', value);
+                    }}
+                    min="1"
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      profileErrors[`${profile.id}-promptTokenMean`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {profileErrors[`${profile.id}-promptTokenMean`] && (
+                    <p className="text-xs text-red-400 mt-1">{profileErrors[`${profile.id}-promptTokenMean`]}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Completion Tokens
+                    <span className="text-yellow-400 ml-1" title="Average tokens in completions">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={profile.completionTokenMean}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      updateProfile(profile.id, { completionTokenMean: value });
+                      validateProfile(profile.id, 'completionTokenMean', value);
+                    }}
+                    min="1"
+                    className={`w-full px-2 py-1 bg-dark-surface border rounded text-sm ${
+                      profileErrors[`${profile.id}-completionTokenMean`] 
+                        ? 'border-red-500' 
+                        : 'border-dark-border'
+                    }`}
+                  />
+                  {profileErrors[`${profile.id}-completionTokenMean`] && (
+                    <p className="text-xs text-red-400 mt-1">{profileErrors[`${profile.id}-completionTokenMean`]}</p>
+                  )}
+                </div>
+                
+                <div className="flex items-end">
+                  <button
+                    onClick={() => deleteProfile(profile.id)}
+                    disabled={config.profiles.length <= 1}
+                    className="w-full px-2 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded text-sm transition-colors"
+                    title={config.profiles.length <= 1 ? "Cannot delete last profile" : "Delete profile"}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

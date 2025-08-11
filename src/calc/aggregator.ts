@@ -51,10 +51,18 @@ export class MetricsAggregator {
     }
 
     // Track by model
-    const modelStats = this.byModel.get(modelId) || { requests: 0, tokensTotal: 0, costUSD: 0 };
+    const modelStats = this.byModel.get(modelId) || { 
+      forwards: 0,
+      requests: 0, 
+      tokensTotal: 0, 
+      costUSD: 0,
+      modelCostUSD: 0
+    };
+    modelStats.forwards++;
     modelStats.requests++;
     modelStats.tokensTotal += tokens.total;
     modelStats.costUSD += cost.baseCost;
+    modelStats.modelCostUSD += cost.baseCost;
     this.byModel.set(modelId, modelStats);
   }
 
